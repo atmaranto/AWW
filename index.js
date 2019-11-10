@@ -52,6 +52,7 @@ app.get("/check", (req, res) => {
 	});
 	proc.stderr.on("data", (data) => {
 		res.status(500).send(data);
+		console.log(data);
 	});
 });
 
