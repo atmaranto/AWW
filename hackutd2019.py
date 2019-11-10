@@ -39,8 +39,6 @@ else:
     with open('MODIF_DATA.csv', 'r') as f:
         if not save:
             table = pd.read_csv(f, header=0)
-
-            print(table.columns)
             del table['Time']
             del table['Occupancy1']
             del table['Occupancy2']
@@ -56,13 +54,17 @@ else:
             hasFan = table.loc[table['FanState'].notnull()]
             Y = hasFan.loc[:, table.columns == 'FanState']
             X = hasFan.loc[:, table.columns != 'FanState']
-            print(X.describe())
+            #print(X.describe())
             clf = xgboost.XGBClassifier(tree_method='gpu_hist', predictor='gpu_predictor', num_class=2, objective='binary_crossentropy', n_estimators=500, verbosity=2)
             with open('model', 'rb') as f:
                 clf = pickle.load(f)
             #clf.load_model('modified.model')
-            print(X.values[0])
-            print(clf.predict(X.values[0:2]))
+            #print(X.values[0])
+            output = clf.predict(X.values[0:7])
+            out = ''
+            for i in output:
+                out += str(i) + ' '
+            print(out)
         else:
             table = pd.read_csv(f, names=['Time', 'Occupancy', 'Occupancy1', 'Occupancy2', 'IndoorTemp', 'IndoorHumid', 'IndoorAir', 'IndoorMean', 'IndoorCO2', 'OutdoorTemp', 'OutdoorHumid', 'OutdoorAir', 'Office', 'Floor', 'Location', 'FanClass', 'FanState', 'WindowState', 'CurrentThermoCool', 'BaseThermoCool', 'CurrentThermoHeat', 'BaseThermoHeat'])
             del table['Time']
