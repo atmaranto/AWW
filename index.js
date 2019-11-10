@@ -50,6 +50,9 @@ app.get("/check", (req, res) => {
 	proc.stdout.on("data", (data) => {
 		res.status(200).send(data.replace(/\n/g, ""));
 	});
+	proc.stderr.on("data", (data) => {
+		res.status(500).send(data);
+	});
 });
 
 server.listen(process.env.PORT || 31418);
