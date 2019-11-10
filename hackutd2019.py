@@ -5,6 +5,7 @@ import pickle
 import pandas as pd
 import sys, math, csv, os
 import numpy as np
+import time
 
 LAT_COLUMN = 19
 LNG_COLUMN = 20
@@ -29,6 +30,7 @@ currentHeat = -1.33
 r = np.asarray([occupancy, indoorTemp, indoorHumid, 0.0, 0.0, fanClass, windowState, currentCool, currentHeat])
 toReturn = [TEMP_COLUMN, DEW_COLUMN, HUMID_COLUMN, WIND_COLUMN]
 
+np.random.seed(int(time.time() / 3600))
 if(len(sys.argv) != 4):
     print("Missing params")
 # Room temperature, Latitude, Longitude
@@ -48,6 +50,7 @@ else:
     with open('MODIF_DATA.csv', 'r') as f:
         if not save:
             table = pd.read_csv(f, header=0)
+
             del table['Time']
             del table['Occupancy1']
             del table['Occupancy2']
@@ -69,28 +72,32 @@ else:
                 clf = pickle.load(f)
             input = np.repeat(r[:, np.newaxis], 7, axis=1)
             input = input.T
-            input[0, 3] = closest[toReturn[0]]
-            input[0, 4] = closest[toReturn[2]]
+            outdoor = (float(closest[toReturn[2]]) - 32) / 1.8
+            input[0, 3] = outdoor
+            input[0, 4] = outdoor
             for i in range(1, 7):
-                input[i, 3] = np.random.rand() * np.random.randint(1, 3)
-                input[i, 4] = np.random.rand() * np.random.randint(1, 3)
+                input[i, 3] = outdoor + np.random.random() * 2 - 2
+                input[i, 4] = outdoor + np.random.random() * 2 - 2
+            average = (temp + outdoor) / 2#abs(temp + float(closest[toReturn[0]])) / 2
+            input[:, 7] = average
+            input[:, 8] = average
             output = clf.predict(input)
             epochs = 0
             if(sum(output) > 0):
                 while(sum(output) > 0 and epochs < 10):
                     variance = 1
                     for i in range(0, 7):
-                        input[i, 7] = np.random.rand() * np.random.randint(1, 3) * variance
-                        input[i, 8] = np.random.rand() * np.random.randint(1, 3) * variance
+                        input[i, 7] = average * (np.random.random() * 2 - 2) * variance
+                        input[i, 8] = average * (np.random.random() * 2 - 2) * variance
                         output = clf.predict(input)
                         variance += 1
                     epochs += 1
             out = ''
             for i in range(0, 7):
-                out += str("%.2f" % (input[i, 1] + np.random.rand()) + ' ')
+                out += str("%.2f" % (input[i, 7] + np.random.rand()) + ' ')
             print(out)
         else:
-            table = pd.read_csv(f, names=['Time', 'Occupancy', 'Occupancy17', 'Occupancy2', 'IndoorTemp', 'IndoorHumid', 'IndoorAir', 'IndoorMean', 'IndoorCO2', 'OutdoorTemp', 'OutdoorHumid', 'OutdoorAir', 'Office', 'Floor', 'Location', 'FanClass', 'FanState', 'WindowState', 'CurrentThermoCool', 'BaseThermoCool', 'CurrentThermoHeat', 'BaseThermoHeat'])
+            table = pd.read_csv(f, header = 0)
             del table['Time']
             del table['Occupancy1']
             del table['Occupancy2']
@@ -104,10 +111,10 @@ else:
             del table['BaseThermoCool']
             del table['BaseThermoHeat']
             hasFan = table.loc[table['FanState'].notnull()]
-            Y = hasFan.loc[:, table.columns == 'FanState']
-            X = hasFan.loc[:, table.columns != 'FanState']
+            Y = hasFan.loc[:, hasFan.columns == 'FanState']
+            X = hasFan.loc[:, hasFan.columns != 'FanState']
             X_train, X_test, Y_train, Y_test = sklearn.model_selection.train_test_split(X, Y, stratify=Y, train_size=0.8, random_state=1)
-            clf = xgboost.XGBClassifier(tree_method='gpu_hist', predictor='gpu_predictor', num_class=2, objective='binary_crossentropy', n_estimators=500, verbosity=2)
+            clf = xgboost.XGBClassifier(tree_method='gpu_hist', predictor='gpu_predictor', num_class=2, objective='binary_crossentropy', n_estimators=2500, verbosity=2)
             clf.fit(X_train.values, Y_train.values)
             print(sklearn.metrics.classification_report(Y_test.values, clf.predict(X_test.values)))
             with open('model', 'wb') as f:
