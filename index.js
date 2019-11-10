@@ -45,7 +45,7 @@ app.get("/", (req, res) => {
 	return res.status(200).send(fileData); //Lol
 });
 
-app.post("/check", (req, res) => {
+app.get("/check", (req, res) => {
 	var proc = child_process.execFile("/usr/local/bin/python3", ["hackutd2019.py", req.query.temperature, req.query.latitude, req.query.longitude]);
 	proc.stdout.on("data", (data) => {
 		res.status(200).send(data.replace(/\n/g, ""));
