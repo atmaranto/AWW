@@ -52,4 +52,4 @@ app.post("/check", (req, res) => {
 	});
 });
 
-server.listen(400);
+server.listen(process.env.PORT || 31418);
