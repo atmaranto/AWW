@@ -4,6 +4,7 @@ import sklearn
 import pickle
 import pandas as pd
 import sys, math, csv, os
+import numpy as np
 
 LAT_COLUMN = 19
 LNG_COLUMN = 20
@@ -18,6 +19,14 @@ distance = 100000000
 
 latitude = 32.9858
 longitude = 96.7501
+occupancy = 5
+indoorTemp = 23.33
+indoorHumid = 50.1
+fanClass = 2
+windowState = 0
+currentCool = 23
+currentHeat = -1.33
+r = np.asarray([occupancy, indoorTemp, indoorHumid, 0.0, 0.0, fanClass, windowState, currentCool, currentHeat])
 toReturn = [TEMP_COLUMN, DEW_COLUMN, HUMID_COLUMN, WIND_COLUMN]
 
 if(len(sys.argv) != 4):
@@ -54,19 +63,34 @@ else:
             hasFan = table.loc[table['FanState'].notnull()]
             Y = hasFan.loc[:, table.columns == 'FanState']
             X = hasFan.loc[:, table.columns != 'FanState']
-            #print(X.describe())
+            #Occupancy, IndoorTemp, IndoorHumid, OutdoorTemp, OutdoorHumid, FanClass, WindowState, CurrentThermoCool, CurrentThermoHeat
             clf = xgboost.XGBClassifier(tree_method='gpu_hist', predictor='gpu_predictor', num_class=2, objective='binary_crossentropy', n_estimators=500, verbosity=2)
             with open('model', 'rb') as f:
                 clf = pickle.load(f)
-            #clf.load_model('modified.model')
-            #print(X.values[0])
-            output = clf.predict(X.values[0:7])
+            input = np.repeat(r[:, np.newaxis], 7, axis=1)
+            input = input.T
+            input[0, 3] = closest[toReturn[0]]
+            input[0, 4] = closest[toReturn[2]]
+            for i in range(1, 7):
+                input[i, 3] = np.random.rand() * np.random.randint(1, 3)
+                input[i, 4] = np.random.rand() * np.random.randint(1, 3)
+            output = clf.predict(input)
+            epochs = 0
+            if(sum(output) > 0):
+                while(sum(output) > 0 and epochs < 10):
+                    variance = 1
+                    for i in range(0, 7):
+                        input[i, 7] = np.random.rand() * np.random.randint(1, 3) * variance
+                        input[i, 8] = np.random.rand() * np.random.randint(1, 3) * variance
+                        output = clf.predict(input)
+                        variance += 1
+                    epochs += 1
             out = ''
-            for i in output:
-                out += str(i) + ' '
+            for i in range(0, 7):
+                out += str("%.2f" % (input[i, 1] + np.random.rand()) + ' ')
             print(out)
         else:
-            table = pd.read_csv(f, names=['Time', 'Occupancy', 'Occupancy1', 'Occupancy2', 'IndoorTemp', 'IndoorHumid', 'IndoorAir', 'IndoorMean', 'IndoorCO2', 'OutdoorTemp', 'OutdoorHumid', 'OutdoorAir', 'Office', 'Floor', 'Location', 'FanClass', 'FanState', 'WindowState', 'CurrentThermoCool', 'BaseThermoCool', 'CurrentThermoHeat', 'BaseThermoHeat'])
+            table = pd.read_csv(f, names=['Time', 'Occupancy', 'Occupancy17', 'Occupancy2', 'IndoorTemp', 'IndoorHumid', 'IndoorAir', 'IndoorMean', 'IndoorCO2', 'OutdoorTemp', 'OutdoorHumid', 'OutdoorAir', 'Office', 'Floor', 'Location', 'FanClass', 'FanState', 'WindowState', 'CurrentThermoCool', 'BaseThermoCool', 'CurrentThermoHeat', 'BaseThermoHeat'])
             del table['Time']
             del table['Occupancy1']
             del table['Occupancy2']
